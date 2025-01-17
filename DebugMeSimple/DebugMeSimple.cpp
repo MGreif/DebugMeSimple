@@ -47,6 +47,8 @@ int main()
 {
 	std::cout << "Hello, i will do some secret stuff here ..." << std::endl;
 
+
+
 	// Use API to check for PEB->BeingDebugged
 	// Bypass: Set PEB->BeingDebugged to 0 or hook API
 	if (IsDebuggerPresent()) {

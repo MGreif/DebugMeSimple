@@ -1,3 +1,9 @@
 .vs/
 DebugMeSimple/.vs
 DebugMeSimple/x64
+
+Solver/.vs
+Solver/x64
+
+Loader/.vs
+Loader/x64
