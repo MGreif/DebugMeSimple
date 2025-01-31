@@ -121,6 +121,7 @@ void debugged() {
 int main()
 {
 	std::cout << "Hello, i will do some secret stuff here ..." << std::endl;
+	std::cout << "Try to bypass these anti-debugging techniques!" << std::endl;
 
 	// Use API to check for PEB->BeingDebugged
 	// Bypass: Set PEB->BeingDebugged to 0 or hook API
@@ -204,6 +205,7 @@ int main()
 	
 
     // Just to keep the program going
+	// Literally just for testing purposes. Dont try to simply attach the debugger once the count starts.
 	int count = 0;
 	while (true) {
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
