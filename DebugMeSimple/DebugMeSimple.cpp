@@ -5,7 +5,32 @@
 #include <stdio.h>
 #include <Windows.h>
 #include <winternl.h>
-BOOL isBeingDebugged = false;
+#include <thread>
+#include <TlHelp32.h>
+BOOL g_bIsBeingDebugged = false;
+BOOL g_bParentProcessIsDebugger = false;
+BOOL g_bDebuggerWindowPresent = false;
+
+
+DWORD getParentProcessId() {
+	DWORD currentProcessId = GetCurrentProcessId();
+
+	DWORD processId;
+
+	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+
+	PROCESSENTRY32W processEntry;
+	if (!Process32FirstW(hSnapshot, &processEntry)) {
+		return 0;
+	}
+
+	do {
+		if (processEntry.th32ProcessID == currentProcessId) {
+			return processEntry.th32ParentProcessID;
+		}
+	} while (Process32NextW(hSnapshot, &processEntry));
+	return 0;
+}
 
 LONG WINAPI
 VectoredHandlerBreakPoint(
@@ -20,7 +45,7 @@ VectoredHandlerBreakPoint(
 
 		*/
 
-		isBeingDebugged = false;
+		g_bIsBeingDebugged = false;
 		PCONTEXT Context = ExceptionInfo->ContextRecord;
 
 		// The breakpoint instruction is 0xCC (int 3), just one byte in size.
@@ -38,6 +63,56 @@ VectoredHandlerBreakPoint(
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 
+BOOL EnumWinProcCheckIfParentIsDebugger(HWND hWindow, LPARAM param) {
+	int parentProcessId = *reinterpret_cast<int*>(param);
+	
+	DWORD windowProcessId;
+	GetWindowThreadProcessId(hWindow, &windowProcessId);
+
+	
+	if (parentProcessId == windowProcessId) {
+		std::string sTitle = std::string("", 100);
+		if (strncmp(sTitle.c_str(), "", sTitle.size()) == 0) return TRUE;
+		if (sTitle.find("dbg") != std::string::npos ||
+			sTitle.find("Debugger") != std::string::npos ||
+			sTitle.find("IDA") != std::string::npos ||
+			sTitle.find("Dbg") != std::string::npos) {
+			g_bParentProcessIsDebugger = true;
+			return FALSE;
+		}
+		return FALSE;
+	}
+	return TRUE;
+}
+
+BOOL EnumWinProcCheckIfDebuggerPresent(HWND hWindow, LPARAM param) {
+
+	DWORD windowProcessId;
+	GetWindowThreadProcessId(hWindow, &windowProcessId);
+
+	std::string sTitle = std::string("", 100);
+	GetWindowTextA(hWindow, &sTitle[0], sTitle.size());
+	if (strncmp(sTitle.c_str(), "", sTitle.size()) == 0) return TRUE;
+	if (sTitle.find("dbg") != std::string::npos ||
+		sTitle.find("Debugger") != std::string::npos ||
+		sTitle.find("IDA") != std::string::npos ||
+		sTitle.find("Dbg") != std::string::npos) {
+		g_bDebuggerWindowPresent = true;
+		return FALSE;
+	}
+	return TRUE;
+}
+
+void checkIfParentProcessIsDebugger() {
+	DWORD parentProcessId = getParentProcessId();
+	if (parentProcessId == 0) return;
+	EnumWindows(EnumWinProcCheckIfParentIsDebugger, parentProcessId);
+}
+
+void checkIfDebuggerWindowPresent() {
+	EnumWindows(EnumWinProcCheckIfDebuggerPresent, NULL);
+}
+
 void debugged() {
 	MessageBox(NULL, L"I am being debugged rn >:(", L"AYO", MB_OK);
 	ExitProcess(1);
@@ -46,8 +121,6 @@ void debugged() {
 int main()
 {
 	std::cout << "Hello, i will do some secret stuff here ..." << std::endl;
-
-
 
 	// Use API to check for PEB->BeingDebugged
 	// Bypass: Set PEB->BeingDebugged to 0 or hook API
@@ -60,8 +133,8 @@ int main()
 	// Use another API to check for PEB->BeingDebugged
 	// Bypass: Set PEB->BeingDebugged to 0 or hook API
 
-	CheckRemoteDebuggerPresent(GetCurrentProcess(), &isBeingDebugged);
-	if (isBeingDebugged){
+	CheckRemoteDebuggerPresent(GetCurrentProcess(), &g_bIsBeingDebugged);
+	if (g_bIsBeingDebugged){
 		debugged();
 	}
 
@@ -92,14 +165,14 @@ int main()
 	// Check if debug breakpoint exception is cought by debugger, if so the isBeingDebugged bool is not reset to false because VEH is not executed
 	// Bypass: Pass exceptions back to application or patch binary
 	PVOID hVeh = AddVectoredExceptionHandler(0, VectoredHandlerBreakPoint);
-	isBeingDebugged = true;
+	g_bIsBeingDebugged = true;
 
 	DebugBreak();
 
 	if (hVeh)
 		RemoveVectoredExceptionHandler(hVeh);
 
-	if (isBeingDebugged) {
+	if (g_bIsBeingDebugged) {
 		debugged();
 	}
 
@@ -108,5 +181,32 @@ int main()
 
 
 
+	checkIfParentProcessIsDebugger();
+
+	if (g_bParentProcessIsDebugger) {
+		debugged();
+	}
+
+	std::cout << "Well, you bypassed check if parent process is debugger :)" << std::endl;
+
+
+	checkIfDebuggerWindowPresent();
+
+	if (g_bDebuggerWindowPresent) {
+		debugged();
+	}
+
+	std::cout << "Well, you bypassed check if debugger window is present :)" << std::endl;
+
+
+
 	MessageBox(NULL, L"Some fancy secret stuff\nHere is your cookie: o", L"Secret", MB_OK);
+	
+
+    // Just to keep the program going
+	int count = 0;
+	while (true) {
+		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		printf("Count: %d\n", ++count);
+	}
 }
