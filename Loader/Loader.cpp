@@ -53,12 +53,12 @@ int main()
     _LoadLibraryA m_LoadLibraryA = (_LoadLibraryA)GetProcAddress(kernel, "LoadLibraryA");
 
     LPDWORD hLoaderThread = NULL;
-    if (!CreateRemoteThreadEx(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)m_LoadLibraryA, pDll_path, NULL, NULL, hLoaderThread)) {
-        printf("Could not create thread at address: 0x%p", m_LoadLibraryA);
-        printf("Error: 0x%ul", GetLastError());
-        getchar();
-        ExitProcess(1);
-    }
+ //   if (!CreateRemoteThreadEx(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)m_LoadLibraryA, pDll_path, NULL, NULL, hLoaderThread)) {
+ //       printf("Could not create thread at address: 0x%p", m_LoadLibraryA);
+//        printf("Error: 0x%ul", GetLastError());
+ //       getchar();
+//        ExitProcess(1);
+//    }
     
     std::cout << "Started thread and loaded library" << std::endl;
     MessageBox(NULL, L"Attach debugger now", L":)", MB_OK);
